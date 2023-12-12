@@ -1,25 +1,17 @@
 from rest_framework import serializers
-from logistic.models import Product
-from logistic.models import StockProduct
-from .models import Stock
+from logistic.models import Product, StockProduct, Stock
 
-
+# исправлено 12/12/23
 
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ['id', 'title', 'description']
 
-
 class ProductPositionSerializer(serializers.ModelSerializer):
     class Meta:
         model = StockProduct
         fields = ['id', 'product', 'quantity', 'price']
-
-    def validate(self, attrs):
-        attrs.pop('stock', None)
-        return super().validate(attrs)
-
 
 class StockSerializer(serializers.ModelSerializer):
     positions = ProductPositionSerializer(many=True)
@@ -42,10 +34,10 @@ class StockSerializer(serializers.ModelSerializer):
             for position_data in positions_data:
                 position_id = position_data.get('id', None)
                 if position_id:
-                    position_item = StockProduct.objects.get(id=position_id, stock=instance)
-                    for field, value in position_data.items():
-                        setattr(position_item, field, value)
-                    position_item.save()
+                    position_item, _ = StockProduct.objects.update_or_create(
+                        id=position_id, stock=instance,
+                        defaults={key: value for key, value in position_data.items() if key != 'id'}
+                    )
                 else:
                     StockProduct.objects.create(stock=instance, **position_data)
         return instance
